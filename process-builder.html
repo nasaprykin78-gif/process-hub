@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Сборка процесса</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { font-family: 'Inter', system-ui, sans-serif; }
+  body { background: #f7f8fa; color: #111827; }
+  .field-label { font-size: 0.8rem; font-weight: 500; color: #4b5563; margin-bottom: 4px; display: block; }
+  .field-input, .field-textarea {
+    width: 100%; border: 1px solid #e5e7eb; background: #fff;
+    border-radius: 0.75rem; padding: 0.6rem 0.8rem; font-size: 0.9rem;
+    transition: all .15s ease; outline: none;
+  }
+  .field-input:focus, .field-textarea:focus {
+    border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+  }
+  .field-textarea { resize: vertical; min-height: 70px; }
+  .group-card {
+    background: #fff; border-radius: 1rem; padding: 1.1rem 1.2rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.02);
+    border: 1px solid #f0f1f4;
+  }
+  .group-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; margin-bottom: 0.9rem; }
+  .group-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+  .step-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 0.85rem;
+    padding: 0.7rem 0.9rem; min-width: 160px; max-width: 220px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    transition: all .15s ease;
+  }
+  .step-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+  .step-card.decision {
+    background: linear-gradient(135deg,#fef3c7,#fde68a);
+    border-color: #fcd34d;
+  }
+  .step-card.start { background: linear-gradient(135deg,#dcfce7,#bbf7d0); border-color: #86efac; }
+  .step-card.end { background: linear-gradient(135deg,#fee2e2,#fecaca); border-color: #fca5a5; }
+  .arrow {
+    width: 2px; height: 22px; background: #cbd5e1; margin: 0 auto;
+    position: relative;
+  }
+  .arrow::after {
+    content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 7px solid #cbd5e1;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0.55rem 1rem; border-radius: 0.75rem; font-size: 0.88rem; font-weight: 500;
+    transition: all .15s ease; cursor: pointer; border: 1px solid transparent;
+  }
+  .btn-primary { background: #111827; color: #fff; }
+  .btn-primary:hover { background: #1f2937; transform: translateY(-1px); }
+  .btn-ghost { background: #fff; color: #374151; border-color: #e5e7eb; }
+  .btn-ghost:hover { background: #f9fafb; }
+  .btn-accent { background: #6366f1; color: #fff; }
+  .btn-accent:hover { background: #4f46e5; }
+  .result-card {
+    background: #fff; border-radius: 1rem; padding: 1.2rem;
+    border: 1px solid #f0f1f4;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .result-title { font-weight: 600; font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 500; background: #eef2ff; color: #4338ca;
+  }
+  .empty-state {
+    border: 2px dashed #e5e7eb; border-radius: 1rem; padding: 3rem 1.5rem; text-align: center;
+    color: #6b7280; background: #fff;
+  }
+  table.sipoc { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
+  table.sipoc th { background: #f9fafb; padding: 8px 10px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; }
+  table.sipoc td { padding: 10px; vertical-align: top; border-bottom: 1px solid #f3f4f6; color: #4b5563; }
+  table.sipoc tr:last-child td { border-bottom: none; }
+  .scroll-fade { scrollbar-width: thin; }
+  .fade-in { animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="bg-white border-b border-gray-100 sticky top-0 z-10 backdrop-blur bg-white/80">
+  <div class="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">⚙</div>
+      <div>
+        <div class="font-semibold text-gray-900">Сборка процесса</div>
+        <div class="text-xs text-gray-500">Из заметок — в понятную картину за 10–20 минут</div>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button id="btnDemo" class="btn btn-ghost">✨ Демо</button>
+      <button id="btnClear" class="btn btn-ghost">↺ Очистить</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- LEFT: INPUT -->
+  <section class="space-y-4">
+
+    <div class="group-card">
+      <div class="group-title"><span class="group-dot" style="background:#10b981"></span>Основа процесса</div>
+      <div class="space-y-3">
+        <div><label class="field-label">Название процесса</label><input id="f_name" class="field-input" placeholder="например: Обработка заявки клиента"/></div>
+        <div><label class="field-label">Краткое описание</label><textarea id="f_desc" class="field-textarea" placeholder="О чём этот процесс в двух словах"></textarea></div>
+        <div><label class="field-label">Что запускает процесс?</label><input id="f_trigger" class="field-input" placeholder="событие, действие или документ"/></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="field-label">С чего начинается</label><input id="f_start" class="field-input" placeholder="первое действие"/></div>
+          <div><label class="field-label">Чем заканчивается</label><input id="f_end" class="field-input" placeholder="результат / финал"/></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-card">
+      <div class="group-title"><span class="group-dot" style="background:#3b82f6"></span>Структура</div>
+      <div class="space-y-3">
+        <div><label class="field-label">Основные шаги</label><textarea id="f_steps" class="field-textarea" rows="4" placeholder="каждый шаг с новой строки или через запятую"></textarea></div>
+        <div><label class="field-label">Участники / роли</label><textarea id="f_roles" class="field-textarea" placeholder="кто участвует в процессе"></textarea></div>
+      </div>
+    </div>
+
+    <div class="group-card">
+      <div class="group-title"><span class="group-dot" style="background:#eab308"></span>Контекст</div>
+      <div class="space-y-3">
+        <div><label class="field-label">Кто получает результат</label><input id="f_customer" class="field-input" placeholder="клиент, отдел, система…"/></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="field-label">Как часто происходит</label><input id="f_freq" class="field-input" placeholder="ежедневно, по запросу…"/></div>
+          <div>
+            <label class="field-label">Критичность</label>
+            <select id="f_crit" class="field-input">
+              <option value="">—</option>
+              <option>Низкая</option>
+              <option>Средняя</option>
+              <option>Высокая</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-card">
+      <div class="group-title"><span class="group-dot" style="background:#a855f7"></span>Проблемы и особенности</div>
+      <div class="space-y-3">
+        <div><label class="field-label">Где возникают сложности или задержки</label><textarea id="f_problems" class="field-textarea"></textarea></div>
+        <div><label class="field-label">Исключения или разные сценарии</label><textarea id="f_exceptions" class="field-textarea"></textarea></div>
+        <div><label class="field-label">Лишние или дублирующие шаги</label><textarea id="f_dupes" class="field-textarea"></textarea></div>
+      </div>
+    </div>
+
+    <details class="group-card">
+      <summary class="group-title">
+        <span class="group-dot" style="background:#9ca3af"></span>Управление
+        <span class="ml-auto text-xs text-gray-400">▾ раскрыть</span>
+      </summary>
+      <div class="space-y-3 mt-2">
+        <div><label class="field-label">Метрики оценки процесса</label><textarea id="f_metrics" class="field-textarea"></textarea></div>
+        <div><label class="field-label">Регламенты или документы</label><textarea id="f_docs" class="field-textarea"></textarea></div>
+      </div>
+    </details>
+
+    <details class="group-card">
+      <summary class="group-title">
+        <span class="group-dot" style="background:#f97316"></span>Дополнительно
+        <span class="ml-auto text-xs text-gray-400">▾ раскрыть</span>
+      </summary>
+      <div class="space-y-3 mt-2">
+        <div><label class="field-label">Сколько времени занимает процесс</label><input id="f_time" class="field-input"/></div>
+        <div><label class="field-label">Где сейчас описан процесс</label><input id="f_where" class="field-input" placeholder="Confluence, Notion, нигде…"/></div>
+      </div>
+    </details>
+
+    <div class="group-card">
+      <div class="group-title">🧠 Свободный ввод</div>
+      <textarea id="f_free" class="field-textarea" rows="6" placeholder="Вставьте текст, заметки или транскрипт интервью — что есть"></textarea>
+    </div>
+
+    <div class="sticky bottom-3">
+      <button id="btnGenerate" class="btn btn-accent w-full text-base py-3 shadow-lg shadow-indigo-200">
+        ✨ Сгенерировать процесс
+      </button>
+      <p class="text-xs text-gray-500 text-center mt-2">Можно заполнить только часть полей — остальное будет предложено автоматически</p>
+    </div>
+
+  </section>
+
+  <!-- RIGHT: RESULT -->
+  <section class="space-y-4">
+    <div id="resultArea">
+      <div class="empty-state">
+        <div class="text-4xl mb-3">📋</div>
+        <div class="font-medium text-gray-700 mb-1">Здесь появится модель процесса</div>
+        <div class="text-sm">Заполните хотя бы пару полей слева и нажмите «Сгенерировать»</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ['f_name','f_desc','f_trigger','f_start','f_end','f_steps','f_roles','f_customer','f_freq','f_crit','f_problems','f_exceptions','f_dupes','f_metrics','f_docs','f_time','f_where','f_free'];
+
+function readForm(){
+  const o = {};
+  FIELDS.forEach(id => o[id] = $(id).value.trim());
+  return o;
+}
+
+function splitList(text){
+  if(!text) return [];
+  return text.split(/\n|;|,(?=\s)|•|–|—|\d+[\.\)]\s+/).map(s=>s.trim()).filter(Boolean);
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function extractStepsFromText(text){
+  if(!text) return [];
+  // try line-based split, take short-ish lines that look actionable
+  const lines = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  const candidates = [];
+  lines.forEach(l => {
+    const cleaned = l.replace(/^\d+[\.\)]\s*/,'').replace(/^[-•*]\s*/,'');
+    if(cleaned.length > 2 && cleaned.length < 120) candidates.push(cleaned);
+  });
+  return candidates.slice(0, 12);
+}
+
+function detectDecision(step){
+  return /\?|если|проверк|решен|утвержд|согласован|approve|verify|check/i.test(step);
+}
+
+function buildModel(d){
+  const name = d.f_name || 'Без названия';
+  const desc = d.f_desc;
+  const trigger = d.f_trigger;
+  const start = d.f_start;
+  const end = d.f_end;
+
+  let steps = splitList(d.f_steps);
+  if(steps.length === 0 && d.f_free) steps = extractStepsFromText(d.f_free);
+  if(steps.length === 0){
+    steps = [
+      start || 'Получение входных данных',
+      'Проверка / обработка',
+      'Принятие решения',
+      end || 'Выдача результата'
+    ];
+  }
+
+  // ensure start/end framing
+  const fullSteps = [];
+  if(start && !steps[0].toLowerCase().includes(start.toLowerCase().slice(0,10))) fullSteps.push({text: start, type:'start'});
+  else if(steps.length) fullSteps.push({text: steps.shift(), type:'start'});
+
+  steps.forEach(s => fullSteps.push({text: s, type: detectDecision(s) ? 'decision' : 'normal'}));
+
+  if(end){
+    const last = fullSteps[fullSteps.length-1];
+    if(!last || !last.text.toLowerCase().includes(end.toLowerCase().slice(0,10))) fullSteps.push({text: end, type:'end'});
+    else last.type = 'end';
+  } else {
+    if(fullSteps.length) fullSteps[fullSteps.length-1].type = 'end';
+  }
+
+  const roles = splitList(d.f_roles);
+  const customer = d.f_customer || 'Внутренний или внешний потребитель';
+
+  // SIPOC
+  const suppliers = roles.length ? roles.slice(0,2) : ['Инициатор процесса', 'Смежные системы'];
+  const inputs = [];
+  if(trigger) inputs.push(trigger);
+  if(d.f_docs) inputs.push('Документы / регламенты');
+  if(!inputs.length) inputs.push('Заявка / запрос', 'Исходные данные');
+  const outputs = [];
+  if(end) outputs.push(end);
+  outputs.push('Подтверждение завершения');
+  const customers = [customer];
+
+  // Bottlenecks
+  const bottlenecks = [];
+  if(d.f_problems) splitList(d.f_problems).forEach(s=>bottlenecks.push(s));
+  if(d.f_exceptions) bottlenecks.push('Исключительные сценарии: ' + d.f_exceptions);
+  if(fullSteps.some(s=>s.type==='decision')) bottlenecks.push('Точки принятия решений могут зависеть от доступности конкретных людей');
+  if(roles.length > 2) bottlenecks.push('Передача между несколькими ролями увеличивает риск задержек');
+  if(!d.f_metrics) bottlenecks.push('Отсутствие метрик усложняет выявление узких мест');
+  if(!bottlenecks.length) bottlenecks.push('Возможные ручные операции и ожидание ответов', 'Зависимость от ключевых исполнителей');
+
+  // Suggestions
+  const suggestions = [];
+  if(d.f_dupes) suggestions.push('Можно убрать дублирующие шаги: ' + d.f_dupes);
+  suggestions.push('Можно упростить точки согласования — оставить одного ответственного');
+  if(fullSteps.length > 5) suggestions.push('Можно объединить мелкие последовательные шаги в один логический блок');
+  suggestions.push('Можно автоматизировать рутинные проверки и уведомления');
+  if(!d.f_docs) suggestions.push('Можно зафиксировать процесс в коротком регламенте — это снизит вариативность');
+
+  // Metrics
+  const metrics = [];
+  if(d.f_metrics) splitList(d.f_metrics).forEach(m=>metrics.push(m));
+  ['Время выполнения процесса (cycle time)', 'Количество ошибок / возвратов', 'Загрузка участников', 'Доля успешно завершённых случаев']
+    .forEach(m => { if(!metrics.includes(m)) metrics.push(m); });
+
+  return {name, desc, trigger, start, end, steps: fullSteps, roles, customer, sipoc:{suppliers, inputs, process: fullSteps.map(s=>s.text), outputs, customers}, bottlenecks, suggestions, metrics, raw: d};
+}
+
+function renderModel(m){
+  const stepIcon = t => t==='start'?'▶':t==='end'?'■':t==='decision'?'◆':'•';
+
+  const stepsHtml = m.steps.map((s,i) => `
+    <div class="flex flex-col items-center">
+      <div class="step-card ${s.type}">
+        <div class="text-xs text-gray-500 mb-1">Шаг ${i+1} ${stepIcon(s.type)}</div>
+        <div class="text-sm font-medium text-gray-800">${escapeHtml(s.text)}</div>
+      </div>
+      ${i < m.steps.length-1 ? '<div class="arrow"></div>' : ''}
+    </div>
+  `).join('');
+
+  const rolesHtml = m.roles.length
+    ? m.roles.map(r=>`<span class="badge mr-1 mb-1">${escapeHtml(r)}</span>`).join('')
+    : '<span class="text-sm text-gray-400">Роли не указаны явно</span>';
+
+  const list = arr => `<ul class="space-y-1.5 text-sm text-gray-700">${arr.map(x=>`<li class="flex gap-2"><span class="text-indigo-400 mt-0.5">›</span><span>${escapeHtml(x)}</span></li>`).join('')}</ul>`;
+
+  const html = `
+    <div class="space-y-4 fade-in">
+
+      <div class="result-card">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-xs text-gray-500 mb-1">Процесс</div>
+            <div class="text-xl font-semibold text-gray-900">${escapeHtml(m.name)}</div>
+            ${m.desc ? `<div class="text-sm text-gray-600 mt-1">${escapeHtml(m.desc)}</div>` : ''}
+          </div>
+          <div class="flex gap-2">
+            <button onclick="downloadResult('txt')" class="btn btn-ghost text-xs">📥 .txt</button>
+            <button onclick="downloadResult('json')" class="btn btn-ghost text-xs">📥 .json</button>
+            <button onclick="copyResult()" class="btn btn-ghost text-xs">📋 Копировать</button>
+            <button onclick="generate()" class="btn btn-primary text-xs">🔄 Уточнить</button>
+          </div>
+        </div>
+        ${m.trigger ? `<div class="mt-3 text-sm"><span class="text-gray-500">Триггер: </span><span class="text-gray-800">${escapeHtml(m.trigger)}</span></div>` : ''}
+      </div>
+
+      <div class="result-card">
+        <div class="result-title">🗺 Схема процесса</div>
+        <div class="overflow-x-auto scroll-fade">
+          <div class="flex flex-col items-center py-2">${stepsHtml}</div>
+        </div>
+        <div class="text-xs text-gray-400 mt-3">▶ старт &nbsp; ◆ решение &nbsp; ■ финал</div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-title">📊 SIPOC</div>
+        <div class="overflow-x-auto">
+        <table class="sipoc">
+          <thead><tr>
+            <th>Suppliers</th><th>Inputs</th><th>Process</th><th>Outputs</th><th>Customers</th>
+          </tr></thead>
+          <tbody><tr>
+            <td>${m.sipoc.suppliers.map(escapeHtml).join('<br>')}</td>
+            <td>${m.sipoc.inputs.map(escapeHtml).join('<br>')}</td>
+            <td>${m.sipoc.process.map((p,i)=>`${i+1}. ${escapeHtml(p)}`).join('<br>')}</td>
+            <td>${m.sipoc.outputs.map(escapeHtml).join('<br>')}</td>
+            <td>${m.sipoc.customers.map(escapeHtml).join('<br>')}</td>
+          </tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="result-card">
+          <div class="result-title">📝 Шаги процесса</div>
+          <ol class="space-y-1.5 text-sm text-gray-700 list-decimal pl-5">
+            ${m.steps.map(s=>`<li>${escapeHtml(s.text)}${s.type==='decision'?' <span class="badge" style="background:#fef3c7;color:#92400e">решение</span>':''}</li>`).join('')}
+          </ol>
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <div class="text-xs text-gray-500 mb-1">Участники</div>
+            <div>${rolesHtml}</div>
+          </div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-title">⚠ Узкие места</div>
+          ${list(m.bottlenecks)}
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="result-card">
+          <div class="result-title">💡 Предложения по улучшению</div>
+          ${list(m.suggestions)}
+        </div>
+        <div class="result-card">
+          <div class="result-title">📈 Метрики</div>
+          ${list(m.metrics)}
+        </div>
+      </div>
+
+      <div class="result-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fde68a">
+        <div class="result-title">ℹ Это черновая модель процесса</div>
+        <p class="text-sm text-gray-700">Результат основан на неполной информации. Стоит дополнительно уточнить:</p>
+        <ul class="text-sm text-gray-700 mt-2 space-y-1 pl-5 list-disc">
+          <li>границы процесса (где он реально начинается и заканчивается)</li>
+          <li>роли и зоны ответственности</li>
+          <li>проблемные зоны и их частоту</li>
+        </ul>
+      </div>
+
+    </div>
+  `;
+  $('resultArea').innerHTML = html;
+}
+
+let currentModel = null;
+
+function generate(){
+  const data = readForm();
+  const hasAny = Object.values(data).some(v=>v);
+  if(!hasAny){
+    alert('Заполните хотя бы одно поле или нажмите «Демо»');
+    return;
+  }
+  currentModel = buildModel(data);
+  renderModel(currentModel);
+  document.getElementById('resultArea').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function downloadResult(fmt){
+  if(!currentModel) return;
+  let content, mime, name;
+  if(fmt==='json'){
+    content = JSON.stringify(currentModel, null, 2);
+    mime = 'application/json'; name = 'process.json';
+  } else {
+    const m = currentModel;
+    content =
+`ПРОЦЕСС: ${m.name}
+${m.desc?`Описание: ${m.desc}\n`:''}${m.trigger?`Триггер: ${m.trigger}\n`:''}
+ШАГИ:
+${m.steps.map((s,i)=>`${i+1}. ${s.text}${s.type==='decision'?' [решение]':''}`).join('\n')}
+
+УЧАСТНИКИ: ${m.roles.join(', ') || '—'}
+
+SIPOC:
+  Suppliers: ${m.sipoc.suppliers.join(', ')}
+  Inputs:    ${m.sipoc.inputs.join(', ')}
+  Outputs:   ${m.sipoc.outputs.join(', ')}
+  Customers: ${m.sipoc.customers.join(', ')}
+
+УЗКИЕ МЕСТА:
+${m.bottlenecks.map(x=>'- '+x).join('\n')}
+
+ПРЕДЛОЖЕНИЯ:
+${m.suggestions.map(x=>'- '+x).join('\n')}
+
+МЕТРИКИ:
+${m.metrics.map(x=>'- '+x).join('\n')}
+
+⚠ Это черновая модель процесса — основана на неполной информации.`;
+    mime = 'text/plain'; name = 'process.txt';
+  }
+  const blob = new Blob([content], {type: mime+';charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function copyResult(){
+  if(!currentModel) return;
+  const text = $('resultArea').innerText;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = event.target;
+    const old = btn.innerText;
+    btn.innerText = '✓ Скопировано';
+    setTimeout(()=>btn.innerText = old, 1500);
+  });
+}
+
+function clearAll(){
+  FIELDS.forEach(id => $(id).value = '');
+  currentModel = null;
+  $('resultArea').innerHTML = `
+    <div class="empty-state">
+      <div class="text-4xl mb-3">📋</div>
+      <div class="font-medium text-gray-700 mb-1">Здесь появится модель процесса</div>
+      <div class="text-sm">Заполните хотя бы пару полей слева и нажмите «Сгенерировать»</div>
+    </div>`;
+}
+
+function loadDemo(){
+  const demo = {
+    f_name: 'Обработка заявки клиента',
+    f_desc: 'Приём, проверка и согласование клиентских заявок до выдачи результата',
+    f_trigger: 'Поступление заявки через сайт или почту',
+    f_start: 'Регистрация заявки',
+    f_end: 'Отправка результата клиенту',
+    f_steps: 'Регистрация заявки\nПроверка комплектности документов\nЗапрос недостающих данных\nСогласование с ответственным\nПодготовка ответа\nОтправка клиенту',
+    f_roles: 'Менеджер по работе с клиентами\nСпециалист бэк-офиса\nРуководитель отдела',
+    f_customer: 'Внешний клиент',
+    f_freq: 'Ежедневно, ~30 заявок в день',
+    f_crit: 'Высокая',
+    f_problems: 'Долгое ожидание ответа от руководителя\nЧасть данных приходит в свободной форме',
+    f_exceptions: 'VIP-клиенты обрабатываются по отдельному маршруту',
+    f_dupes: 'Менеджер и бэк-офис дублируют проверку комплектности',
+    f_metrics: 'Среднее время обработки\nДоля возвратов на доработку',
+    f_docs: 'Регламент работы с заявками v.2',
+    f_time: '1–3 рабочих дня',
+    f_where: 'Confluence, частично в головах',
+    f_free: ''
+  };
+  Object.entries(demo).forEach(([k,v])=>{ if($(k)) $(k).value = v; });
+  generate();
+}
+
+document.getElementById('btnGenerate').addEventListener('click', generate);
+document.getElementById('btnClear').addEventListener('click', clearAll);
+document.getElementById('btnDemo').addEventListener('click', loadDemo);
+</script>
+</body>
+</html>
